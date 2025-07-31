@@ -62,7 +62,7 @@
 #     return text
 
 # # === Step 2: Clause-Aware Chunking with Grouping ===
-# def chunk_document(text, min_clause_len=80, max_group_size=3):
+# def semantic_chunk(text, min_clause_len=80, max_group_size=3):
 #     clauses = re.split(r"(?=\n?\s*(\d+(?:\.\d+)*[a-zA-Z]?)\s+)", text)
 
 #     chunks = []
@@ -142,7 +142,7 @@
 #         exit()
 
 #     pdf_text = extract_text_from_pdf(pdf_path)
-#     clause_chunks = chunk_document(pdf_text)
+#     clause_chunks = semantic_chunk(pdf_text)
 
 #     upload_chunks_to_pinecone(clause_chunks, index)
 

@@ -149,7 +149,7 @@ def embed_text_for_query(text):
     )["embedding"]
 
 # === Query Specific File Namespace ===
-def retrieve_chunks_for_query(query, file_id, top_k=8):
+def retrieve_chunks_for_query_for_query(query, file_id, top_k=8):
     query_embedding = embed_text_for_query(query)
     results = index.query(vector=query_embedding, top_k=top_k, namespace=file_id, include_metadata=True)
     return [m["metadata"]["text"] for m in results["matches"]]
@@ -186,7 +186,7 @@ if __name__ == "__main__":
     query = input("🔍 Enter your query: ").strip()
 
     print("🔎 Retrieving relevant chunks...")
-    chunks = retrieve_chunks_for_query(query, file_id)
+    chunks = retrieve_chunks_for_query_for_query(query, file_id)
 
     if not chunks:
         print("⚠️ No relevant chunks found.")
