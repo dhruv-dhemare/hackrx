@@ -8,7 +8,7 @@ venv/
 env/
 ENV/
 .venv/
-.env/
+.env
 
 # Distribution / packaging
 build/
@@ -41,3 +41,7 @@ pip-delete-this-directory.txt
 # OS-specific files
 .DS_Store
 Thumbs.db
+
+\node_modules
+node_modules/
+\files
