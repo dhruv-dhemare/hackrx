@@ -1,0 +1,117 @@
+.user-home-container {
+  width: 100vw;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  font-family: 'Segoe UI', sans-serif;
+  background: white;
+}
+
+/* Header */
+.user-home-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.2rem 2rem;
+  background-color: #007bff;
+  color: white;
+}
+
+.logo {
+  font-size: 1.6rem;
+  font-weight: bold;
+}
+
+.nav-links {
+  display: flex;
+  gap: 1.5rem;
+}
+
+.nav-btn {
+  background: transparent;
+  border: none;
+  color: white;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.nav-btn:hover {
+  color: #d0f0ff;
+}
+
+.nav-btn.logout:hover {
+  color: #ffdddd;
+}
+
+.nav-btn.active {
+  font-weight: bold;
+  text-decoration: underline;
+}
+
+/* Main Area */
+.user-home-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 2rem;
+  background-color: #f5f9ff;
+}
+
+/* Query Box */
+.query-box {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  width: 100%;
+  max-width: 40rem;
+  margin: 0 auto;
+  color: #555;
+}
+
+.query-input {
+  flex: 1;
+  padding: 0.8rem 1.2rem;
+  font-size: 1rem;
+  border-radius: 2rem;
+  border: 1px solid #ccc;
+  outline: none;
+  background: #ffffff;
+  color: #000; /* <-- Add this line to make text black */
+}
+
+
+.send-btn {
+  background-color: #007bff;
+  color: white;
+  border: none;
+  border-radius: 50%;
+  padding: 0.7rem 1rem;
+  font-size: 1rem;
+  cursor: pointer;
+  transition: background-color 0.3s;
+}
+
+.send-btn:hover {
+  background-color: #0056b3;
+}
+
+/* Response */
+.response-box {
+  margin-top: 2rem;
+  padding: 2rem;
+  background-color: #ffffff;
+  border-radius: 1rem;
+  box-shadow: 0 0.3rem 1rem rgba(0, 0, 0, 0.05);
+  width: 100%;
+  max-width: 60rem;
+  margin-left: auto;
+  margin-right: auto;
+  min-height: 10rem;
+}
+
+.placeholder-response {
+  color: #555;
+  font-style: italic;
+}

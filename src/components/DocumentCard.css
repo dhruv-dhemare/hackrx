@@ -1,0 +1,44 @@
+.document-card {
+  width: 25vh;
+  height: 25vh;
+  background-color: #e3f2fd;
+  border-radius: 10px;
+  padding: 12px;
+  margin-right: 16px;
+  margin-bottom: 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.2s ease;
+}
+
+.document-card:hover {
+  transform: translateY(-3px);
+}
+
+.pdf-icon {
+  margin-top: 10px;
+}
+
+.doc-name {
+  font-size: 14px;
+  text-align: center;
+  word-break: break-word;
+  color: #333;
+  margin-top: 8px;
+  flex: 1;
+}
+
+.document-delete {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: #e74c3c;
+}
