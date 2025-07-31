@@ -9,6 +9,7 @@ env/
 ENV/
 .venv/
 .env
+test.py
 
 # Distribution / packaging
 build/
