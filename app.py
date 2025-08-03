@@ -554,7 +554,7 @@ Output strictly in this JSON format:
 
 
 # === API Endpoint ===
-@app.post("/hackrx/run")
+@app.post("/api/v1/hackrx/run")
 async def hackrx_run(file: UploadFile = File(None), pdf_url: str = Form(None), questions: str = Form(...)):
     start_time = time.time()
 
