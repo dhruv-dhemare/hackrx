@@ -124,32 +124,89 @@
 #         }, indent=4))
 
 import os
+import fitz  # PyMuPDF
+import uuid
+import re
+import hashlib
 import json
+from concurrent.futures import ThreadPoolExecutor
+from fastapi import FastAPI, UploadFile, File, Form, HTTPException
 from dotenv import load_dotenv
 import google.generativeai as genai
-from pinecone import Pinecone
+from pinecone import Pinecone, ServerlessSpec
 
-# === Load Env ===
+# === Load Env Variables ===
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
+PINECONE_CLOUD = os.getenv("PINECONE_CLOUD", "aws")
+PINECONE_REGION = os.getenv("PINECONE_REGION", "us-east-1")
 
 # === Configure Gemini & Pinecone ===
 genai.configure(api_key=GOOGLE_API_KEY)
 pc = Pinecone(api_key=PINECONE_API_KEY)
+
+# Ensure Pinecone Index Exists
+if INDEX_NAME not in pc.list_indexes().names():
+    pc.create_index(
+        name=INDEX_NAME,
+        dimension=768,
+        metric="cosine",
+        spec=ServerlessSpec(cloud=PINECONE_CLOUD, region=PINECONE_REGION)
+    )
 index = pc.Index(INDEX_NAME)
 
-# === Embedding for Query ===
-def embed_text_for_query(text):
-    return genai.embed_content(
-        model="models/embedding-001",
-        content=text,
-        task_type="retrieval_query"
-    )["embedding"]
+app = FastAPI()
 
-# === Query Specific File Namespace ===
-def retrieve_chunks_for_query_for_query(query, file_id, top_k=8):
+# === PDF Text Extraction ===
+def extract_text_from_pdf(pdf_path):
+    doc = fitz.open(pdf_path)
+    text = ""
+    for page_num, page in enumerate(doc, start=1):
+        page_text = page.get_text("text").strip()
+        if page_text:
+            text += f"\n[Page {page_num}]\n{page_text}\n"
+    return text
+
+# === Chunking ===
+def semantic_chunk(text, chunk_size=300, overlap=50):
+    words = text.split()
+    chunks = []
+    for i in range(0, len(words), chunk_size - overlap):
+        chunk = " ".join(words[i:i + chunk_size])
+        if len(chunk.split()) >= 50:
+            chunks.append(chunk.strip())
+    return chunks
+
+# === Embedding ===
+def embed_chunk(chunk):
+    return genai.embed_content(model="models/embedding-001", content=chunk, task_type="retrieval_document")["embedding"]
+
+# === Upload Chunks to Pinecone ===
+def upload_chunks_to_pinecone(chunks, file_id, batch_size=50):
+    batch = []
+    def process_chunk(chunk):
+        chunk_hash = hashlib.md5(chunk.encode()).hexdigest()
+        embedding = embed_chunk(chunk)
+        return (str(uuid.uuid4()), embedding, {"text": chunk, "hash": chunk_hash})
+
+    with ThreadPoolExecutor(max_workers=5) as executor:
+        embedded_chunks = list(executor.map(process_chunk, chunks))
+
+    for vec in embedded_chunks:
+        batch.append(vec)
+        if len(batch) >= batch_size:
+            index.upsert(vectors=batch, namespace=file_id)
+            batch = []
+    if batch:
+        index.upsert(vectors=batch, namespace=file_id)
+
+# === Query Retrieval ===
+def embed_text_for_query(text):
+    return genai.embed_content(model="models/embedding-001", content=text, task_type="retrieval_query")["embedding"]
+
+def retrieve_chunks(query, file_id, top_k=8):
     query_embedding = embed_text_for_query(query)
     results = index.query(vector=query_embedding, top_k=top_k, namespace=file_id, include_metadata=True)
     return [m["metadata"]["text"] for m in results["matches"]]
@@ -158,7 +215,7 @@ def retrieve_chunks_for_query_for_query(query, file_id, top_k=8):
 def ask_gemini(query, context_chunks):
     context = "\n---\n".join(context_chunks)
     prompt = f"""
-You are a health insurance policy analysis assistant. Use only the following clauses:
+You are a health insurance policy assistant. Answer based only on the clauses:
 
 Query:
 {query}
@@ -168,11 +225,9 @@ Clauses:
 
 Output strictly JSON:
 {{
-  "decision": "Yes / No / Cannot determine",
-  "amount": "Coverage limit / percentage / Unknown",
+  "decision": "Yes/No/Cannot determine",
+  "amount": "Coverage limit or Unknown",
   "justification": "Explain with cited clauses",
-  "clause_ids": ["C1","C2"],
-  "risk_level": "Red / Orange / Yellow / Black",
   "answers": ["Direct factual extractions"]
 }}
 """
@@ -180,17 +235,39 @@ Output strictly JSON:
     response = model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
     return json.loads(response.text)
 
-# === Main Query Program ===
-if __name__ == "__main__":
-    file_id = input("📁 Enter the namespace/file_id of the PDF to query: ").strip()
-    query = input("🔍 Enter your query: ").strip()
+# === SINGLE ROUTE: UPLOAD PDF + ANSWER QUERIES ===
+@app.post("/hackrx/run")
+async def hackrx_run(file: UploadFile = File(...), questions: str = Form(...)):
+    try:
+        # Convert questions string into list
+        questions_list = json.loads(questions)
 
-    print("🔎 Retrieving relevant chunks...")
-    chunks = retrieve_chunks_for_query_for_query(query, file_id)
+        # Save PDF temporarily
+        pdf_path = f"/tmp/{file.filename}"
+        with open(pdf_path, "wb") as f:
+            content = await file.read()
+            f.write(content)
 
-    if not chunks:
-        print("⚠️ No relevant chunks found.")
-    else:
-        print("💬 Asking Gemini...")
-        answer = ask_gemini(query, chunks)
-        print(json.dumps(answer, indent=4))
+        # Extract & Embed PDF
+        pdf_text = extract_text_from_pdf(pdf_path)
+        if not pdf_text.strip():
+            raise HTTPException(status_code=400, detail="Empty or scanned PDF (no text extracted).")
+
+        file_id = os.path.splitext(file.filename)[0] + "_" + str(uuid.uuid4())[:6]
+        chunks = semantic_chunk(pdf_text)
+        upload_chunks_to_pinecone(chunks, file_id)
+
+        # Process Queries
+        answers = []
+        for q in questions_list:
+            retrieved = retrieve_chunks(q, file_id)
+            if not retrieved:
+                answers.append("Cannot determine")
+            else:
+                gemini_output = ask_gemini(q, retrieved)
+                answers.append(gemini_output["answers"][0] if "answers" in gemini_output else "Cannot determine")
+
+        return {"file_id": file_id, "answers": answers}
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Webhook error: {str(e)}")
