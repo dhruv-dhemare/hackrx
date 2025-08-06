@@ -1236,6 +1236,222 @@
 # async def health_check():
 #     return {"status": "healthy", "timestamp": time.time()}
 
+# 4.5% accuracy submitted 
+# import os
+# import fitz
+# import uuid
+# import re
+# import hashlib
+# import json
+# import asyncio
+# import requests
+# import tempfile
+# import time
+# from typing import List, Dict, Tuple
+# from fastapi import FastAPI, HTTPException, Body
+# from dotenv import load_dotenv
+# from pinecone import Pinecone, ServerlessSpec
+# from dataclasses import dataclass
+# from pdf2image import convert_from_path
+# import pytesseract
+# from rank_bm25 import BM25Okapi
+# import google.generativeai as genai
+# from bs4 import BeautifulSoup
+# from docx import Document
+# import email
+# from email import policy
+
+# # === Load Env ===
+# load_dotenv()
+# GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+# PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+# INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
+# PINECONE_CLOUD = os.getenv("PINECONE_CLOUD", "aws")
+# PINECONE_REGION = os.getenv("PINECONE_REGION", "us-east-1")
+
+# # === Configure Gemini & Pinecone ===
+# genai.configure(api_key=GOOGLE_API_KEY)
+# pc = Pinecone(api_key=PINECONE_API_KEY)
+# if INDEX_NAME not in pc.list_indexes().names():
+#     pc.create_index(name=INDEX_NAME, dimension=768, metric="cosine",
+#                     spec=ServerlessSpec(cloud=PINECONE_CLOUD, region=PINECONE_REGION))
+# index = pc.Index(INDEX_NAME)
+
+# app = FastAPI()
+
+# @dataclass
+# class DocumentChunk:
+#     text: str
+#     chunk_id: str
+#     page_num: int
+#     chunk_type: str
+#     metadata: Dict
+
+# # === File Helpers ===
+# def download_file(url: str) -> str:
+#     tmp_path = os.path.join(tempfile.gettempdir(), "doc_download")
+#     os.makedirs(tmp_path, exist_ok=True)
+#     local_path = os.path.join(tmp_path, os.path.basename(url.split("?")[0]))
+#     r = requests.get(url, stream=True, timeout=30)
+#     if r.status_code != 200:
+#         raise HTTPException(status_code=400, detail="Failed to download file.")
+#     with open(local_path, "wb") as f:
+#         f.write(r.content)
+#     return local_path
+
+# def ocr_pdf(pdf_path: str) -> str:
+#     pages = convert_from_path(pdf_path)
+#     return "".join([pytesseract.image_to_string(page) for page in pages])
+
+# def extract_pdf(pdf_path: str) -> Tuple[str, Dict]:
+#     doc = fitz.open(pdf_path)
+#     text = ""
+#     structured = {"definitions": {}, "clauses": {}, "tables": [], "key_terms": set()}
+#     for i, page in enumerate(doc, start=1):
+#         page_text = page.get_text("text").strip()
+#         if page_text:
+#             text += f"\n[Page {i}]\n{page_text}\n"
+#             for term, definition in re.findall(r'([A-Z][a-z\s]+)\s*means\s+([^.]+\.)', page_text):
+#                 structured['definitions'][term.strip()] = definition.strip()
+#             for clause_num, clause_text in re.findall(r'(\d+(?:\.\d+)*)\s+([^\n]+)', page_text):
+#                 structured['clauses'][clause_num] = clause_text.strip()
+#     return text, structured
+
+# def extract_docx(file_path: str) -> Tuple[str, Dict]:
+#     doc = Document(file_path)
+#     text = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
+#     structured = {"headings": [p.text for p in doc.paragraphs if p.style.name.startswith("Heading")]}
+#     return text, structured
+
+# def extract_email(file_path: str) -> Tuple[str, Dict]:
+#     with open(file_path, "rb") as f:
+#         msg = email.message_from_binary_file(f, policy=policy.default)
+#     email_text = ""
+#     structured = {"subject": msg["subject"], "from": msg["from"], "to": msg["to"], "body": ""}
+#     for part in msg.walk():
+#         if part.get_content_type() == "text/plain":
+#             email_text += part.get_content()
+#         elif part.get_content_type() == "text/html":
+#             email_text += BeautifulSoup(part.get_content(), "html.parser").get_text()
+#     structured["body"] = email_text.strip()
+#     return email_text, structured
+
+# # === Chunking ===
+# def smart_chunk(text: str, structured: Dict, chunk_size=400, overlap=80) -> List[DocumentChunk]:
+#     words = text.split()
+#     chunks = []
+#     for term, definition in structured.get('definitions', {}).items():
+#         chunks.append(DocumentChunk(f"Definition: {term} means {definition}", f"def_{len(chunks)}", 0, "definition", {}))
+#     for clause, c_text in structured.get('clauses', {}).items():
+#         chunks.append(DocumentChunk(f"Clause {clause}: {c_text}", f"clause_{clause}", 0, "clause", {}))
+#     for i in range(0, len(words), chunk_size - overlap):
+#         c_text = " ".join(words[i:i+chunk_size])
+#         if len(c_text.split()) >= 25:
+#             chunks.append(DocumentChunk(c_text, f"chunk_{len(chunks)}", (i // 200) + 1, "general", {}))
+#     return chunks
+
+# # === Embedding & Search ===
+# def embed_text(text: str):
+#     return genai.embed_content(model="models/embedding-001", content=text, task_type="retrieval_document")["embedding"]
+
+# def embed_query(text: str):
+#     return genai.embed_content(model="models/embedding-001", content=text, task_type="retrieval_query")["embedding"]
+
+# async def upload_chunks(chunks: List[DocumentChunk], file_id: str):
+#     loop = asyncio.get_event_loop()
+#     vectors = await asyncio.gather(*[
+#         loop.run_in_executor(None, lambda c=chunk: (str(uuid.uuid4()), embed_text(c.text),
+#         {"text": c.text, "chunk_type": c.chunk_type, "page_num": c.page_num}))
+#         for chunk in chunks
+#     ])
+#     index.upsert(vectors=vectors, namespace=file_id)
+
+# async def hybrid_search(query: str, file_id: str, bm25: BM25Okapi, chunks: List[str], top_k=8):
+#     async def bm25_top():
+#         scores = bm25.get_scores(query.split())
+#         top_idx = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
+#         return [chunks[i] for i in top_idx]
+#     async def pinecone_top():
+#         res = index.query(namespace=file_id, vector=embed_query(query), top_k=top_k, include_metadata=True)
+#         return [m["metadata"]["text"] for m in res["matches"]]
+#     bm25_res, pinecone_res = await asyncio.gather(bm25_top(), pinecone_top())
+#     return list(dict.fromkeys(bm25_res + pinecone_res))[:top_k]
+
+# # === Batched Gemini Answering ===
+# async def batch_gemini_answer(questions: List[str], context: str) -> List[str]:
+#     q_json = json.dumps(questions, indent=2)
+#     prompt = f"""
+# You are an insurance policy expert. Use ONLY the context below to answer.
+
+# DOCUMENT CONTEXT:
+# {context}
+
+# QUESTIONS:
+# {q_json}
+
+# Rules:
+# 1. Answer each question accurately.
+# 2. If answer is missing, respond "Not specified in the policy text."
+# Output JSON strictly: {{"answers": [<ans1>, <ans2>, ...]}}
+# """
+#     model = genai.GenerativeModel("gemini-1.5-flash")
+#     resp = model.generate_content(prompt, generation_config={"temperature": 0, "response_mime_type": "application/json"})
+#     try:
+#         return json.loads(resp.text)["answers"]
+#     except:
+#         match = re.search(r'\{[\s\S]*\}', resp.text)
+#         return json.loads(match.group(0)).get("answers", ["Not specified in the policy text."]*len(questions))
+
+# # === Main Endpoint ===
+# @app.post("/api/v1/hackrx/run")
+# async def hackrx_run(payload: dict = Body(...)):
+#     start = time.time()
+#     pdf_url = payload.get("documents")
+#     questions = payload.get("questions")
+#     if not pdf_url or not questions:
+#         raise HTTPException(400, "Missing 'documents' or 'questions'")
+    
+#     file_path = download_file(pdf_url)
+#     ext = file_path.split(".")[-1].lower()
+
+#     # Extract text
+#     if ext == "pdf":
+#         text, structured = extract_pdf(file_path)
+#         if not text.strip(): text = ocr_pdf(file_path)
+#     elif ext == "docx":
+#         text, structured = extract_docx(file_path)
+#     elif ext in ["eml", "email"]:
+#         text, structured = extract_email(file_path)
+#     else:
+#         raise HTTPException(400, "Unsupported file format.")
+
+#     file_hash = hashlib.md5(text.encode()).hexdigest()
+#     stats = index.describe_index_stats()
+#     if file_hash not in stats.get("namespaces", {}):
+#         chunks = smart_chunk(text, structured)
+#         await upload_chunks(chunks, file_hash)
+#         chunk_texts = [c.text for c in chunks]
+#     else:
+#         res = index.query(vector=[0.0]*768, namespace=file_hash, top_k=50, include_metadata=True)
+#         chunk_texts = [m["metadata"]["text"] for m in res["matches"]]
+
+#     bm25 = BM25Okapi([c.split() for c in chunk_texts])
+
+#     # Retrieve and batch Gemini answers
+#     answers = []
+#     batch_size = 4
+#     for i in range(0, len(questions), batch_size):
+#         batch_qs = questions[i:i+batch_size]
+#         contexts = await asyncio.gather(*[hybrid_search(q, file_hash, bm25, chunk_texts) for q in batch_qs])
+#         merged_context = "\n\n".join(["\n".join(c) for c in contexts])
+#         answers.extend(await batch_gemini_answer(batch_qs, merged_context))
+
+#     return {
+#         "file_id": file_hash,
+#         "file_type": ext,
+#         "answers": answers,
+#         "processing_time": f"{time.time()-start:.2f}s"
+#     }
 
 import os
 import fitz
@@ -1260,22 +1476,30 @@ from bs4 import BeautifulSoup
 from docx import Document
 import email
 from email import policy
+from pymongo import MongoClient, TEXT
 
 # === Load Env ===
 load_dotenv()
 GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
-PINECONE_CLOUD = os.getenv("PINECONE_CLOUD", "aws")
-PINECONE_REGION = os.getenv("PINECONE_REGION", "us-east-1")
+MONGO_URI = os.getenv("MONGO_URI")
 
-# === Configure Gemini & Pinecone ===
+# === Configure Gemini, Pinecone, MongoDB ===
 genai.configure(api_key=GOOGLE_API_KEY)
 pc = Pinecone(api_key=PINECONE_API_KEY)
 if INDEX_NAME not in pc.list_indexes().names():
     pc.create_index(name=INDEX_NAME, dimension=768, metric="cosine",
-                    spec=ServerlessSpec(cloud=PINECONE_CLOUD, region=PINECONE_REGION))
+                    spec=ServerlessSpec(cloud="aws", region="us-east-1"))
 index = pc.Index(INDEX_NAME)
+
+mongo_client = MongoClient(MONGO_URI)
+db = mongo_client["insurance_llm"]
+files_collection = db["files"]
+queries_collection = db["queries"]
+
+# Ensure text search index on MongoDB
+files_collection.create_index([("text", TEXT)])
 
 app = FastAPI()
 
@@ -1287,7 +1511,7 @@ class DocumentChunk:
     chunk_type: str
     metadata: Dict
 
-# === File Helpers ===
+# === Helpers ===
 def download_file(url: str) -> str:
     tmp_path = os.path.join(tempfile.gettempdir(), "doc_download")
     os.makedirs(tmp_path, exist_ok=True)
@@ -1336,7 +1560,6 @@ def extract_email(file_path: str) -> Tuple[str, Dict]:
     structured["body"] = email_text.strip()
     return email_text, structured
 
-# === Chunking ===
 def smart_chunk(text: str, structured: Dict, chunk_size=400, overlap=80) -> List[DocumentChunk]:
     words = text.split()
     chunks = []
@@ -1350,7 +1573,6 @@ def smart_chunk(text: str, structured: Dict, chunk_size=400, overlap=80) -> List
             chunks.append(DocumentChunk(c_text, f"chunk_{len(chunks)}", (i // 200) + 1, "general", {}))
     return chunks
 
-# === Embedding & Search ===
 def embed_text(text: str):
     return genai.embed_content(model="models/embedding-001", content=text, task_type="retrieval_document")["embedding"]
 
@@ -1365,19 +1587,29 @@ async def upload_chunks(chunks: List[DocumentChunk], file_id: str):
         for chunk in chunks
     ])
     index.upsert(vectors=vectors, namespace=file_id)
+    # Also insert into MongoDB
+    for chunk in chunks:
+        files_collection.insert_one({
+            "file_id": file_id,
+            "text": chunk.text,
+            "chunk_type": chunk.chunk_type,
+            "page_num": chunk.page_num
+        })
 
-async def hybrid_search(query: str, file_id: str, bm25: BM25Okapi, chunks: List[str], top_k=8):
-    async def bm25_top():
-        scores = bm25.get_scores(query.split())
-        top_idx = sorted(range(len(scores)), key=lambda i: scores[i], reverse=True)[:top_k]
-        return [chunks[i] for i in top_idx]
-    async def pinecone_top():
-        res = index.query(namespace=file_id, vector=embed_query(query), top_k=top_k, include_metadata=True)
-        return [m["metadata"]["text"] for m in res["matches"]]
-    bm25_res, pinecone_res = await asyncio.gather(bm25_top(), pinecone_top())
-    return list(dict.fromkeys(bm25_res + pinecone_res))[:top_k]
+async def hybrid_search(query: str, file_id: str, top_k=8):
+    # Step 1: MongoDB text search filter
+    mongo_res = list(files_collection.find(
+        {"file_id": file_id, "$text": {"$search": query}},
+        {"score": {"$meta": "textScore"}, "text": 1}
+    ).sort([("score", {"$meta": "textScore"})]).limit(15))
+    mongo_texts = [doc["text"] for doc in mongo_res]
 
-# === Batched Gemini Answering ===
+    # Step 2: Pinecone semantic reranking
+    pinecone_res = index.query(namespace=file_id, vector=embed_query(query), top_k=top_k, include_metadata=True)
+    pinecone_texts = [m["metadata"]["text"] for m in pinecone_res["matches"]]
+
+    return list(dict.fromkeys(mongo_texts + pinecone_texts))[:top_k]
+
 async def batch_gemini_answer(questions: List[str], context: str) -> List[str]:
     q_json = json.dumps(questions, indent=2)
     prompt = f"""
@@ -1402,7 +1634,6 @@ Output JSON strictly: {{"answers": [<ans1>, <ans2>, ...]}}
         match = re.search(r'\{[\s\S]*\}', resp.text)
         return json.loads(match.group(0)).get("answers", ["Not specified in the policy text."]*len(questions))
 
-# === Main Endpoint ===
 @app.post("/api/v1/hackrx/run")
 async def hackrx_run(payload: dict = Body(...)):
     start = time.time()
@@ -1426,25 +1657,32 @@ async def hackrx_run(payload: dict = Body(...)):
         raise HTTPException(400, "Unsupported file format.")
 
     file_hash = hashlib.md5(text.encode()).hexdigest()
-    stats = index.describe_index_stats()
-    if file_hash not in stats.get("namespaces", {}):
+
+    # Cache check
+    if not files_collection.find_one({"file_id": file_hash}):
         chunks = smart_chunk(text, structured)
         await upload_chunks(chunks, file_hash)
-        chunk_texts = [c.text for c in chunks]
-    else:
-        res = index.query(vector=[0.0]*768, namespace=file_hash, top_k=50, include_metadata=True)
-        chunk_texts = [m["metadata"]["text"] for m in res["matches"]]
 
-    bm25 = BM25Okapi([c.split() for c in chunk_texts])
-
-    # Retrieve and batch Gemini answers
     answers = []
     batch_size = 4
     for i in range(0, len(questions), batch_size):
         batch_qs = questions[i:i+batch_size]
-        contexts = await asyncio.gather(*[hybrid_search(q, file_hash, bm25, chunk_texts) for q in batch_qs])
-        merged_context = "\n\n".join(["\n".join(c) for c in contexts])
-        answers.extend(await batch_gemini_answer(batch_qs, merged_context))
+
+        # Query cache check
+        cached = list(queries_collection.find({"file_id": file_hash, "query": {"$in": batch_qs}}))
+        cached_dict = {c["query"]: c["answer"] for c in cached}
+
+        uncached_qs = [q for q in batch_qs if q not in cached_dict]
+        context = ""
+        if uncached_qs:
+            contexts = await asyncio.gather(*[hybrid_search(q, file_hash) for q in uncached_qs])
+            context = "\n\n".join(["\n".join(c) for c in contexts])
+            uncached_ans = await batch_gemini_answer(uncached_qs, context)
+            for q, ans in zip(uncached_qs, uncached_ans):
+                queries_collection.insert_one({"file_id": file_hash, "query": q, "answer": ans})
+                cached_dict[q] = ans
+
+        answers.extend([cached_dict[q] for q in batch_qs])
 
     return {
         "file_id": file_hash,
