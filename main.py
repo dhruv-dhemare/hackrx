@@ -57,7 +57,7 @@
 # thread_local = threading.local()
 
 # def get_genai_client():
-#     """Thread-safe Gemini client"""
+#     """Thread-safe GOOGLE client"""
 #     if not hasattr(thread_local, 'genai_client'):
 #         thread_local.genai_client = genai
 #     return thread_local.genai_client
@@ -336,9 +336,9 @@
 #     logging.info(f"✅ Retrieved {len(matches)} contextual chunks (score threshold: 0.3)")
 #     return matches
 
-# async def ask_gemini_parallel(query: str, context_chunks: List[str]) -> Dict[str, Any]:
-#     """Optimized Gemini query with parallel processing"""
-#     logging.info("🤖 Stage 5: Generating answer with Gemini...")
+# async def ask_GOOGLE_parallel(query: str, context_chunks: List[str]) -> Dict[str, Any]:
+#     """Optimized GOOGLE query with parallel processing"""
+#     logging.info("🤖 Stage 5: Generating answer with GOOGLE...")
     
 #     # Truncate context if too long to avoid token limits
 #     context = "\n---\n".join(context_chunks[:10])  # Limit to top 10 chunks
@@ -368,7 +368,7 @@
 # }}
 # """
 #     try:
-#         model = genai.GenerativeModel("gemini-1.5-flash")
+#         model = genai.GenerativeModel("GOOGLE-1.5-flash")
 #         resp = await asyncio.to_thread(model.generate_content, prompt)
 #         txt = resp.text.strip()
 #         if txt.startswith("json"):
@@ -376,10 +376,10 @@
 #         if txt.endswith(""):
 #             txt = txt[:-3]
 #         result = json.loads(txt)
-#         logging.info("✅ Gemini response generated")
+#         logging.info("✅ GOOGLE response generated")
 #         return result
 #     except Exception as e:
-#         logging.error(f"❌ Gemini error: {str(e)}")
+#         logging.error(f"❌ GOOGLE error: {str(e)}")
 #         return {
 #             "decision": "Cannot determine",
 #             "amount": "Unknown",
@@ -393,7 +393,7 @@
 #     """Process a single question with parallel retrieval and generation"""
 #     # Retrieve chunks and generate answer concurrently
 #     retrieved_chunks = retrieve_chunks_contextual(query)
-#     answer = await ask_gemini_parallel(query, retrieved_chunks)
+#     answer = await ask_GOOGLE_parallel(query, retrieved_chunks)
 #     return answer
 
 # # === API Endpoints ===
@@ -517,7 +517,7 @@ app = FastAPI()
 thread_local = threading.local()
 
 def get_genai_client():
-    """Thread-safe Gemini client"""
+    """Thread-safe GOOGLE client"""
     if not hasattr(thread_local, 'genai_client'):
         thread_local.genai_client = genai
     return thread_local.genai_client
@@ -1038,7 +1038,7 @@ Answer:"""
     max_retries = 3
     for attempt in range(max_retries):
         try:
-            model = genai.GenerativeModel("gemini-1.5-flash")
+            model = genai.GenerativeModel("GOOGLE-1.5-flash")
             response = await asyncio.to_thread(
                 model.generate_content,
                 prompt,
@@ -1071,7 +1071,7 @@ Answer:"""
                     continue
                 else:
                     logging.error(f"❌ Rate limit exceeded after {max_retries} attempts")
-                    return f"Rate limit exceeded. Please upgrade to Gemini Pro API or wait for quota reset."
+                    return f"Rate limit exceeded. Please upgrade to GOOGLE Pro API or wait for quota reset."
             
             # Other errors
             if attempt < max_retries - 1:

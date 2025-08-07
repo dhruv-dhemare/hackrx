@@ -167,7 +167,7 @@ INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
 PINECONE_CLOUD = os.getenv("PINECONE_CLOUD", "aws")
 PINECONE_REGION = os.getenv("PINECONE_REGION", "us-east-1")
 
-# === Configure Gemini & Pinecone ===
+# === Configure GOOGLE & Pinecone ===
 genai.configure(api_key=GOOGLE_API_KEY)
 pc = Pinecone(api_key=PINECONE_API_KEY)
 

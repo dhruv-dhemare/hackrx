@@ -21,7 +21,7 @@
 #     print("❌ Missing env vars. Check your .env file.")
 #     exit()
 
-# # === Configure Gemini & Pinecone ===
+# # === Configure GOOGLE & Pinecone ===
 # genai.configure(api_key=GOOGLE_API_KEY)
 # pc = Pinecone(api_key=PINECONE_API_KEY)
 
@@ -49,7 +49,7 @@
 #     )
 #     return [match["metadata"]["text"] for match in results["matches"]]
 
-# def ask_gemini(query, context_chunks):
+# def ask_GOOGLE(query, context_chunks):
 #     context = "\n---\n".join(context_chunks)
 #     prompt = f"""
 # You are a health insurance policy analysis assistant.
@@ -80,7 +80,7 @@
 #   ]
 # }}
 # """
-#     model = genai.GenerativeModel("gemini-1.5-flash")
+#     model = genai.GenerativeModel("GOOGLE-1.5-flash")
 #     try:
 #         response = model.generate_content(prompt)
 #         response_text = response.text.strip()
@@ -112,8 +112,8 @@
 #                 "answers": []
 #             }, indent=4))
 #             continue
-#         print("💬 Generating Gemini response...")
-#         answer = ask_gemini(query, retrieved)
+#         print("💬 Generating GOOGLE response...")
+#         answer = ask_GOOGLE(query, retrieved)
 #         print(json.dumps(answer if answer else {
 #             "decision": "Cannot determine",
 #             "amount": "Unknown",
@@ -143,7 +143,7 @@ INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
 PINECONE_CLOUD = os.getenv("PINECONE_CLOUD", "aws")
 PINECONE_REGION = os.getenv("PINECONE_REGION", "us-east-1")
 
-# === Configure Gemini & Pinecone ===
+# === Configure GOOGLE & Pinecone ===
 genai.configure(api_key=GOOGLE_API_KEY)
 pc = Pinecone(api_key=PINECONE_API_KEY)
 
@@ -211,8 +211,8 @@ def retrieve_chunks(query, file_id, top_k=8):
     results = index.query(vector=query_embedding, top_k=top_k, namespace=file_id, include_metadata=True)
     return [m["metadata"]["text"] for m in results["matches"]]
 
-# === Gemini Answer Generation ===
-def ask_gemini(query, context_chunks):
+# === GOOGLE Answer Generation ===
+def ask_GOOGLE(query, context_chunks):
     context = "\n---\n".join(context_chunks)
     prompt = f"""
 You are a health insurance policy assistant. Answer based only on the clauses:
@@ -231,7 +231,7 @@ Output strictly JSON:
   "answers": ["Direct factual extractions"]
 }}
 """
-    model = genai.GenerativeModel("gemini-1.5-flash")
+    model = genai.GenerativeModel("GOOGLE-1.5-flash")
     response = model.generate_content(prompt, generation_config={"response_mime_type": "application/json"})
     return json.loads(response.text)
 
@@ -264,8 +264,8 @@ async def hackrx_run(file: UploadFile = File(...), questions: str = Form(...)):
             if not retrieved:
                 answers.append("Cannot determine")
             else:
-                gemini_output = ask_gemini(q, retrieved)
-                answers.append(gemini_output["answers"][0] if "answers" in gemini_output else "Cannot determine")
+                GOOGLE_output = ask_GOOGLE(q, retrieved)
+                answers.append(GOOGLE_output["answers"][0] if "answers" in GOOGLE_output else "Cannot determine")
 
         return {"file_id": file_id, "answers": answers}
 

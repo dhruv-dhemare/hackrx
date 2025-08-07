@@ -386,7 +386,7 @@ class AdvancedDocumentProcessor:
 # === GPT-4 Enhanced QA System ===
 class GPT4QASystem:
     def __init__(self):
-        self.model = "gpt-4"  # Use GPT-4 instead of Gemini
+        self.model = "gpt-4"  # Use GPT-4 instead of GOOGLE
         self.embedding_model = "text-embedding-ada-002"
     
     async def get_embeddings(self, texts: List[str]) -> List[List[float]]:

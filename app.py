@@ -105,7 +105,7 @@
 
 #             context_chunks = [match["metadata"]["text"] for match in pinecone_results["matches"]]
 
-#             # Build Gemini Prompt
+#             # Build GOOGLE Prompt
 #             prompt = f"""
 #             You are an insurance policy assistant.
 #             Use ONLY the clauses below to answer the query.
@@ -127,7 +127,7 @@
 #             }}
 #             """
 
-#             model = genai.GenerativeModel("gemini-1.5-flash")
+#             model = genai.GenerativeModel("GOOGLE-1.5-flash")
 #             response = model.generate_content(prompt)
 #             response_text = response.text.strip()
 
@@ -168,7 +168,7 @@
 # import tempfile
 # from fastapi import FastAPI, HTTPException, Header
 # from upload_script import extract_text_from_pdf, semantic_chunk, upload_chunks_to_pinecone
-# from query_input import retrieve_chunks, ask_gemini
+# from query_input import retrieve_chunks, ask_GOOGLE
 
 # app = FastAPI()
 # @app.get("/")
@@ -264,7 +264,7 @@
 #                 print("\n--- Question:", q)
 #                 print("Retrieved Chunks:\n", retrieved_chunks)
 
-#                 result = ask_gemini(q, retrieved_chunks)
+#                 result = ask_GOOGLE(q, retrieved_chunks)
 #                 answer_text = result["answers"][0] if result and "answers" in result and result["answers"] else "Cannot determine"
 #                 answers.append(answer_text)
 #             except Exception:
@@ -310,7 +310,7 @@
 # PINECONE_CLOUD = os.getenv("PINECONE_CLOUD", "aws")
 # PINECONE_REGION = os.getenv("PINECONE_REGION", "us-east-1")
 
-# # === Configure Gemini & Pinecone ===
+# # === Configure GOOGLE & Pinecone ===
 # genai.configure(api_key=GOOGLE_API_KEY)
 # pc = Pinecone(api_key=PINECONE_API_KEY)
 
@@ -426,7 +426,7 @@
 #             ))
 #     return chunks
 
-# # === Embeddings (Gemini) ===
+# # === Embeddings (GOOGLE) ===
 # def embed_text(text: str):
 #     embedding = genai.embed_content(
 #         model="models/embedding-001",
@@ -482,14 +482,14 @@
 #             combined.append(c)
 #     return combined[:top_k]
 
-# # === Batched Gemini QA ===import re
+# # === Batched GOOGLE QA ===import re
 # import json
 # import asyncio
 # from fastapi import HTTPException
 
-# async def ask_gemini_batch(questions: List[str], context_chunks: List[str], structured_content: Dict = None, retries: int = 3):
+# async def ask_GOOGLE_batch(questions: List[str], context_chunks: List[str], structured_content: Dict = None, retries: int = 3):
 #     """
-#     Ask Gemini model a batch of questions using provided context chunks.
+#     Ask GOOGLE model a batch of questions using provided context chunks.
 #     Ensures detailed, clause-backed answers and avoids hallucination.
 #     Includes robust JSON handling with fallback.
 #     """
@@ -534,7 +534,7 @@
 
 #     for attempt in range(retries):
 #         try:
-#             model = genai.GenerativeModel("gemini-1.5-flash")
+#             model = genai.GenerativeModel("GOOGLE-1.5-flash")
 #             response = model.generate_content(
 #                 prompt,
 #                 generation_config={
@@ -545,7 +545,7 @@
 #             )
 
 #             raw_output = response.text.strip()
-#             print(f"[DEBUG] Gemini Raw Output (Attempt {attempt+1}):\n{raw_output[:500]}")
+#             print(f"[DEBUG] GOOGLE Raw Output (Attempt {attempt+1}):\n{raw_output[:500]}")
 
 #             # Try JSON parsing
 #             try:
@@ -556,20 +556,20 @@
 #                 if match:
 #                     parsed = json.loads(match.group(0))
 #                 else:
-#                     raise HTTPException(status_code=500, detail="Gemini returned invalid JSON.")
+#                     raise HTTPException(status_code=500, detail="GOOGLE returned invalid JSON.")
 
 #             # Validate answers
 #             if "answers" in parsed and isinstance(parsed["answers"], list):
 #                 return parsed["answers"]
 #             else:
-#                 raise ValueError("Gemini returned JSON without 'answers' list.")
+#                 raise ValueError("GOOGLE returned JSON without 'answers' list.")
 
 #         except Exception as e:
-#             print(f"[ERROR] Gemini attempt {attempt+1} failed: {str(e)}")
+#             print(f"[ERROR] GOOGLE attempt {attempt+1} failed: {str(e)}")
 #             if "429" in str(e) and attempt < retries - 1:
 #                 await asyncio.sleep(2 ** attempt)  # exponential backoff
 #             elif attempt == retries - 1:
-#                 raise HTTPException(status_code=500, detail="Gemini QA failed after retries.")
+#                 raise HTTPException(status_code=500, detail="GOOGLE QA failed after retries.")
 
 
 
@@ -625,7 +625,7 @@
 #     # === Hybrid Search & QA ===
 #     bm25 = BM25Okapi([chunk.split() for chunk in chunk_texts])
 #     context_chunks = await hybrid_search(" ".join(questions_list), file_hash, bm25, chunk_texts)
-#     answers = await ask_gemini_batch(questions_list, context_chunks,structured_content)
+#     answers = await ask_GOOGLE_batch(questions_list, context_chunks,structured_content)
 
 #     return {
 #         "file_id": file_hash,
@@ -677,7 +677,7 @@
 # PINECONE_CLOUD = os.getenv("PINECONE_CLOUD", "aws")
 # PINECONE_REGION = os.getenv("PINECONE_REGION", "us-east-1")
 
-# # === Configure Gemini & Pinecone ===
+# # === Configure GOOGLE & Pinecone ===
 # genai.configure(api_key=GOOGLE_API_KEY)
 # pc = Pinecone(api_key=PINECONE_API_KEY)
 # if INDEX_NAME not in pc.list_indexes().names():
@@ -871,7 +871,7 @@
 
 #     bm25 = BM25Okapi([c.split() for c in chunk_texts])
 
-#     # Per-question retrieval & Gemini QA
+#     # Per-question retrieval & GOOGLE QA
 #     answers = []
 #     for q in questions_list:
 #         context_chunks = await hybrid_search(q, file_hash, bm25, chunk_texts, top_k=12)
@@ -900,7 +900,7 @@
 #         }}
 #         """
 
-#         model = genai.GenerativeModel("gemini-1.5-flash")
+#         model = genai.GenerativeModel("GOOGLE-1.5-flash")
 #         response = model.generate_content(prompt, generation_config={
 #             "response_mime_type": "application/json",
 #             "temperature": 0.0,
@@ -958,7 +958,7 @@
 # PINECONE_CLOUD = os.getenv("PINECONE_CLOUD", "aws")
 # PINECONE_REGION = os.getenv("PINECONE_REGION", "us-east-1")
 
-# # === Configure Gemini & Pinecone ===
+# # === Configure GOOGLE & Pinecone ===
 # genai.configure(api_key=GOOGLE_API_KEY)
 # pc = Pinecone(api_key=PINECONE_API_KEY)
 # if INDEX_NAME not in pc.list_indexes().names():
@@ -1200,7 +1200,7 @@
 #         }}
 #         """
 
-#         model = genai.GenerativeModel("gemini-1.5-flash")
+#         model = genai.GenerativeModel("GOOGLE-1.5-flash")
 #         response = model.generate_content(
 #             prompt,
 #             generation_config={
@@ -1269,7 +1269,7 @@
 # PINECONE_CLOUD = os.getenv("PINECONE_CLOUD", "aws")
 # PINECONE_REGION = os.getenv("PINECONE_REGION", "us-east-1")
 
-# # === Configure Gemini & Pinecone ===
+# # === Configure GOOGLE & Pinecone ===
 # genai.configure(api_key=GOOGLE_API_KEY)
 # pc = Pinecone(api_key=PINECONE_API_KEY)
 # if INDEX_NAME not in pc.list_indexes().names():
@@ -1377,8 +1377,8 @@
 #     bm25_res, pinecone_res = await asyncio.gather(bm25_top(), pinecone_top())
 #     return list(dict.fromkeys(bm25_res + pinecone_res))[:top_k]
 
-# # === Batched Gemini Answering ===
-# async def batch_gemini_answer(questions: List[str], context: str) -> List[str]:
+# # === Batched GOOGLE Answering ===
+# async def batch_GOOGLE_answer(questions: List[str], context: str) -> List[str]:
 #     q_json = json.dumps(questions, indent=2)
 #     prompt = f"""
 # You are an insurance policy expert. Use ONLY the context below to answer.
@@ -1394,7 +1394,7 @@
 # 2. If answer is missing, respond "Not specified in the policy text."
 # Output JSON strictly: {{"answers": [<ans1>, <ans2>, ...]}}
 # """
-#     model = genai.GenerativeModel("gemini-1.5-flash")
+#     model = genai.GenerativeModel("GOOGLE-1.5-flash")
 #     resp = model.generate_content(prompt, generation_config={"temperature": 0, "response_mime_type": "application/json"})
 #     try:
 #         return json.loads(resp.text)["answers"]
@@ -1437,14 +1437,14 @@
 
 #     bm25 = BM25Okapi([c.split() for c in chunk_texts])
 
-#     # Retrieve and batch Gemini answers
+#     # Retrieve and batch GOOGLE answers
 #     answers = []
 #     batch_size = 4
 #     for i in range(0, len(questions), batch_size):
 #         batch_qs = questions[i:i+batch_size]
 #         contexts = await asyncio.gather(*[hybrid_search(q, file_hash, bm25, chunk_texts) for q in batch_qs])
 #         merged_context = "\n\n".join(["\n".join(c) for c in contexts])
-#         answers.extend(await batch_gemini_answer(batch_qs, merged_context))
+#         answers.extend(await batch_GOOGLE_answer(batch_qs, merged_context))
 
 #     return {
 #         "file_id": file_hash,
@@ -1453,240 +1453,411 @@
 #         "processing_time": f"{time.time()-start:.2f}s"
 #     }
 
+
+#1.79% accuracy
+# import os
+# import fitz
+# import uuid
+# import re
+# import hashlib
+# import json
+# import asyncio
+# import requests
+# import tempfile
+# import time
+# from typing import List, Dict, Tuple
+# from fastapi import FastAPI, HTTPException, Body
+# from dotenv import load_dotenv
+# from pinecone import Pinecone, ServerlessSpec
+# from dataclasses import dataclass
+# from pdf2image import convert_from_path
+# import pytesseract
+# from rank_bm25 import BM25Okapi
+# import google.generativeai as genai
+# from bs4 import BeautifulSoup
+# from docx import Document
+# import email
+# from email import policy
+# from pymongo import MongoClient, TEXT
+
+# # === Load Env ===
+# load_dotenv()
+# GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
+# PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+# INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
+# MONGO_URI = os.getenv("MONGO_URI")
+
+# # === Configure GOOGLE, Pinecone, MongoDB ===
+# genai.configure(api_key=GOOGLE_API_KEY)
+# pc = Pinecone(api_key=PINECONE_API_KEY)
+# if INDEX_NAME not in pc.list_indexes().names():
+#     pc.create_index(name=INDEX_NAME, dimension=768, metric="cosine",
+#                     spec=ServerlessSpec(cloud="aws", region="us-east-1"))
+# index = pc.Index(INDEX_NAME)
+
+# mongo_client = MongoClient(MONGO_URI)
+# db = mongo_client["insurance_llm"]
+# files_collection = db["files"]
+# queries_collection = db["queries"]
+
+# # Ensure text search index on MongoDB
+# files_collection.create_index([("text", TEXT)])
+
+# app = FastAPI()
+
+# @dataclass
+# class DocumentChunk:
+#     text: str
+#     chunk_id: str
+#     page_num: int
+#     chunk_type: str
+#     metadata: Dict
+
+# # === Helpers ===
+# def download_file(url: str) -> str:
+#     tmp_path = os.path.join(tempfile.gettempdir(), "doc_download")
+#     os.makedirs(tmp_path, exist_ok=True)
+#     local_path = os.path.join(tmp_path, os.path.basename(url.split("?")[0]))
+#     r = requests.get(url, stream=True, timeout=30)
+#     if r.status_code != 200:
+#         raise HTTPException(status_code=400, detail="Failed to download file.")
+#     with open(local_path, "wb") as f:
+#         f.write(r.content)
+#     return local_path
+
+# def ocr_pdf(pdf_path: str) -> str:
+#     pages = convert_from_path(pdf_path)
+#     return "".join([pytesseract.image_to_string(page) for page in pages])
+
+# def extract_pdf(pdf_path: str) -> Tuple[str, Dict]:
+#     doc = fitz.open(pdf_path)
+#     text = ""
+#     structured = {"definitions": {}, "clauses": {}, "tables": [], "key_terms": set()}
+#     for i, page in enumerate(doc, start=1):
+#         page_text = page.get_text("text").strip()
+#         if page_text:
+#             text += f"\n[Page {i}]\n{page_text}\n"
+#             for term, definition in re.findall(r'([A-Z][a-z\s]+)\s*means\s+([^.]+\.)', page_text):
+#                 structured['definitions'][term.strip()] = definition.strip()
+#             for clause_num, clause_text in re.findall(r'(\d+(?:\.\d+)*)\s+([^\n]+)', page_text):
+#                 structured['clauses'][clause_num] = clause_text.strip()
+#     return text, structured
+
+# def extract_docx(file_path: str) -> Tuple[str, Dict]:
+#     doc = Document(file_path)
+#     text = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
+#     structured = {"headings": [p.text for p in doc.paragraphs if p.style.name.startswith("Heading")]}
+#     return text, structured
+
+# def extract_email(file_path: str) -> Tuple[str, Dict]:
+#     with open(file_path, "rb") as f:
+#         msg = email.message_from_binary_file(f, policy=policy.default)
+#     email_text = ""
+#     structured = {"subject": msg["subject"], "from": msg["from"], "to": msg["to"], "body": ""}
+#     for part in msg.walk():
+#         if part.get_content_type() == "text/plain":
+#             email_text += part.get_content()
+#         elif part.get_content_type() == "text/html":
+#             email_text += BeautifulSoup(part.get_content(), "html.parser").get_text()
+#     structured["body"] = email_text.strip()
+#     return email_text, structured
+
+# def smart_chunk(text: str, structured: Dict, chunk_size=400, overlap=80) -> List[DocumentChunk]:
+#     words = text.split()
+#     chunks = []
+#     for term, definition in structured.get('definitions', {}).items():
+#         chunks.append(DocumentChunk(f"Definition: {term} means {definition}", f"def_{len(chunks)}", 0, "definition", {}))
+#     for clause, c_text in structured.get('clauses', {}).items():
+#         chunks.append(DocumentChunk(f"Clause {clause}: {c_text}", f"clause_{clause}", 0, "clause", {}))
+#     for i in range(0, len(words), chunk_size - overlap):
+#         c_text = " ".join(words[i:i+chunk_size])
+#         if len(c_text.split()) >= 25:
+#             chunks.append(DocumentChunk(c_text, f"chunk_{len(chunks)}", (i // 200) + 1, "general", {}))
+#     return chunks
+
+# def embed_text(text: str):
+#     return genai.embed_content(model="models/embedding-001", content=text, task_type="retrieval_document")["embedding"]
+
+# def embed_query(text: str):
+#     return genai.embed_content(model="models/embedding-001", content=text, task_type="retrieval_query")["embedding"]
+
+# async def upload_chunks(chunks: List[DocumentChunk], file_id: str):
+#     loop = asyncio.get_event_loop()
+#     vectors = await asyncio.gather(*[
+#         loop.run_in_executor(None, lambda c=chunk: (str(uuid.uuid4()), embed_text(c.text),
+#         {"text": c.text, "chunk_type": c.chunk_type, "page_num": c.page_num}))
+#         for chunk in chunks
+#     ])
+#     index.upsert(vectors=vectors, namespace=file_id)
+#     # Also insert into MongoDB
+#     for chunk in chunks:
+#         files_collection.insert_one({
+#             "file_id": file_id,
+#             "text": chunk.text,
+#             "chunk_type": chunk.chunk_type,
+#             "page_num": chunk.page_num
+#         })
+
+# async def hybrid_search(query: str, file_id: str, top_k=8):
+#     # Step 1: MongoDB text search filter
+#     mongo_res = list(files_collection.find(
+#         {"file_id": file_id, "$text": {"$search": query}},
+#         {"score": {"$meta": "textScore"}, "text": 1}
+#     ).sort([("score", {"$meta": "textScore"})]).limit(15))
+#     mongo_texts = [doc["text"] for doc in mongo_res]
+
+#     # Step 2: Pinecone semantic reranking
+#     pinecone_res = index.query(namespace=file_id, vector=embed_query(query), top_k=top_k, include_metadata=True)
+#     pinecone_texts = [m["metadata"]["text"] for m in pinecone_res["matches"]]
+
+#     return list(dict.fromkeys(mongo_texts + pinecone_texts))[:top_k]
+
+# async def batch_GOOGLE_answer(questions: List[str], context: str) -> List[str]:
+#     q_json = json.dumps(questions, indent=2)
+#     prompt = f"""
+# You are an insurance policy expert. Use ONLY the context below to answer.
+
+# DOCUMENT CONTEXT:
+# {context}
+
+# QUESTIONS:
+# {q_json}
+
+# Rules:
+# 1. Answer each question accurately.
+# 2. If answer is missing, respond "Not specified in the policy text."
+# Output JSON strictly: {{"answers": [<ans1>, <ans2>, ...]}}
+# """
+#     model = genai.GenerativeModel("GOOGLE-1.5-flash")
+#     resp = model.generate_content(prompt, generation_config={"temperature": 0, "response_mime_type": "application/json"})
+#     try:
+#         return json.loads(resp.text)["answers"]
+#     except:
+#         match = re.search(r'\{[\s\S]*\}', resp.text)
+#         return json.loads(match.group(0)).get("answers", ["Not specified in the policy text."]*len(questions))
+
+# @app.post("/api/v1/hackrx/run")
+# async def hackrx_run(payload: dict = Body(...)):
+#     start = time.time()
+#     pdf_url = payload.get("documents")
+#     questions = payload.get("questions")
+#     if not pdf_url or not questions:
+#         raise HTTPException(400, "Missing 'documents' or 'questions'")
+    
+#     file_path = download_file(pdf_url)
+#     ext = file_path.split(".")[-1].lower()
+
+#     # Extract text
+#     if ext == "pdf":
+#         text, structured = extract_pdf(file_path)
+#         if not text.strip(): text = ocr_pdf(file_path)
+#     elif ext == "docx":
+#         text, structured = extract_docx(file_path)
+#     elif ext in ["eml", "email"]:
+#         text, structured = extract_email(file_path)
+#     else:
+#         raise HTTPException(400, "Unsupported file format.")
+
+#     file_hash = hashlib.md5(text.encode()).hexdigest()
+
+#     # Cache check
+#     if not files_collection.find_one({"file_id": file_hash}):
+#         chunks = smart_chunk(text, structured)
+#         await upload_chunks(chunks, file_hash)
+
+#     answers = []
+#     batch_size = 4
+#     for i in range(0, len(questions), batch_size):
+#         batch_qs = questions[i:i+batch_size]
+
+#         # Query cache check
+#         cached = list(queries_collection.find({"file_id": file_hash, "query": {"$in": batch_qs}}))
+#         cached_dict = {c["query"]: c["answer"] for c in cached}
+
+#         uncached_qs = [q for q in batch_qs if q not in cached_dict]
+#         context = ""
+#         if uncached_qs:
+#             contexts = await asyncio.gather(*[hybrid_search(q, file_hash) for q in uncached_qs])
+#             context = "\n\n".join(["\n".join(c) for c in contexts])
+#             uncached_ans = await batch_GOOGLE_answer(uncached_qs, context)
+#             for q, ans in zip(uncached_qs, uncached_ans):
+#                 queries_collection.insert_one({"file_id": file_hash, "query": q, "answer": ans})
+#                 cached_dict[q] = ans
+
+#         answers.extend([cached_dict[q] for q in batch_qs])
+
+#     return {
+#         "file_id": file_hash,
+#         "file_type": ext,
+#         "answers": answers,
+#         "processing_time": f"{time.time()-start:.2f}s"
+#     }
+
+
 import os
-import fitz
-import uuid
 import re
-import hashlib
-import json
-import asyncio
-import requests
+import uuid
+import fitz  # PyMuPDF
+import email
 import tempfile
-import time
-from typing import List, Dict, Tuple
-from fastapi import FastAPI, HTTPException, Body
-from dotenv import load_dotenv
-from pinecone import Pinecone, ServerlessSpec
-from dataclasses import dataclass
-from pdf2image import convert_from_path
-import pytesseract
-from rank_bm25 import BM25Okapi
+import hashlib
+import docx
+import requests
+import asyncio
 import google.generativeai as genai
 from bs4 import BeautifulSoup
-from docx import Document
-import email
-from email import policy
-from pymongo import MongoClient, TEXT
+from pydantic import BaseModel
+from fastapi import FastAPI, HTTPException
+from typing import List
+from pymongo import MongoClient
+from sentence_transformers import SentenceTransformer
+from dotenv import load_dotenv
+from pinecone import Pinecone, ServerlessSpec
+import logging
+import time
 
-# === Load Env ===
+# ---------------- ENV CONFIG ------------------
 load_dotenv()
-GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
-PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
-INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
 MONGO_URI = os.getenv("MONGO_URI")
+PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
+PINECONE_REGION = os.getenv("PINECONE_REGION")
+PINECONE_INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
+GOOGLE_API_KEY = os.getenv("GOOGLE_API_KEY")
 
-# === Configure Gemini, Pinecone, MongoDB ===
-genai.configure(api_key=GOOGLE_API_KEY)
-pc = Pinecone(api_key=PINECONE_API_KEY)
-if INDEX_NAME not in pc.list_indexes().names():
-    pc.create_index(name=INDEX_NAME, dimension=768, metric="cosine",
-                    spec=ServerlessSpec(cloud="aws", region="us-east-1"))
-index = pc.Index(INDEX_NAME)
-
-mongo_client = MongoClient(MONGO_URI)
-db = mongo_client["insurance_llm"]
-files_collection = db["files"]
-queries_collection = db["queries"]
-
-# Ensure text search index on MongoDB
-files_collection.create_index([("text", TEXT)])
+# ---------------- INIT ------------------
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
 app = FastAPI()
+client = MongoClient(MONGO_URI)
+db = client.hackrx
+pc = Pinecone(api_key=PINECONE_API_KEY)
+index = pc.Index(PINECONE_INDEX_NAME)
+embedding_model = SentenceTransformer("all-mpnet-base-v2")
 
-@dataclass
-class DocumentChunk:
-    text: str
-    chunk_id: str
-    page_num: int
-    chunk_type: str
-    metadata: Dict
+genai.configure(api_key=GOOGLE_API_KEY)
+model = genai.GenerativeModel("models/gemini-1.5-pro-latest")
 
-# === Helpers ===
-def download_file(url: str) -> str:
-    tmp_path = os.path.join(tempfile.gettempdir(), "doc_download")
-    os.makedirs(tmp_path, exist_ok=True)
-    local_path = os.path.join(tmp_path, os.path.basename(url.split("?")[0]))
-    r = requests.get(url, stream=True, timeout=30)
-    if r.status_code != 200:
-        raise HTTPException(status_code=400, detail="Failed to download file.")
-    with open(local_path, "wb") as f:
-        f.write(r.content)
-    return local_path
+# ---------------- INPUT MODEL ------------------
+class RunRequest(BaseModel):
+    documents: str  # file URL
+    questions: List[str]
 
-def ocr_pdf(pdf_path: str) -> str:
-    pages = convert_from_path(pdf_path)
-    return "".join([pytesseract.image_to_string(page) for page in pages])
-
-def extract_pdf(pdf_path: str) -> Tuple[str, Dict]:
-    doc = fitz.open(pdf_path)
+# ---------------- FILE PARSERS ------------------
+def extract_text_from_pdf(path):
     text = ""
-    structured = {"definitions": {}, "clauses": {}, "tables": [], "key_terms": set()}
-    for i, page in enumerate(doc, start=1):
-        page_text = page.get_text("text").strip()
-        if page_text:
-            text += f"\n[Page {i}]\n{page_text}\n"
-            for term, definition in re.findall(r'([A-Z][a-z\s]+)\s*means\s+([^.]+\.)', page_text):
-                structured['definitions'][term.strip()] = definition.strip()
-            for clause_num, clause_text in re.findall(r'(\d+(?:\.\d+)*)\s+([^\n]+)', page_text):
-                structured['clauses'][clause_num] = clause_text.strip()
-    return text, structured
+    with fitz.open(path) as doc:
+        for page in doc:
+            text += page.get_text()
+    return text
 
-def extract_docx(file_path: str) -> Tuple[str, Dict]:
-    doc = Document(file_path)
-    text = "\n".join([p.text for p in doc.paragraphs if p.text.strip()])
-    structured = {"headings": [p.text for p in doc.paragraphs if p.style.name.startswith("Heading")]}
-    return text, structured
+def extract_text_from_docx(path):
+    doc = docx.Document(path)
+    return "\n".join(p.text for p in doc.paragraphs)
 
-def extract_email(file_path: str) -> Tuple[str, Dict]:
-    with open(file_path, "rb") as f:
-        msg = email.message_from_binary_file(f, policy=policy.default)
-    email_text = ""
-    structured = {"subject": msg["subject"], "from": msg["from"], "to": msg["to"], "body": ""}
+def extract_text_from_email(path):
+    with open(path, 'rb') as f:
+        msg = email.message_from_binary_file(f, policy=email.policy.default)
     for part in msg.walk():
-        if part.get_content_type() == "text/plain":
-            email_text += part.get_content()
-        elif part.get_content_type() == "text/html":
-            email_text += BeautifulSoup(part.get_content(), "html.parser").get_text()
-    structured["body"] = email_text.strip()
-    return email_text, structured
+        if part.get_content_type() == 'text/html':
+            return BeautifulSoup(part.get_content(), "html.parser").get_text()
+        elif part.get_content_type() == 'text/plain':
+            return part.get_content()
+    return ""
 
-def smart_chunk(text: str, structured: Dict, chunk_size=400, overlap=80) -> List[DocumentChunk]:
-    words = text.split()
-    chunks = []
-    for term, definition in structured.get('definitions', {}).items():
-        chunks.append(DocumentChunk(f"Definition: {term} means {definition}", f"def_{len(chunks)}", 0, "definition", {}))
-    for clause, c_text in structured.get('clauses', {}).items():
-        chunks.append(DocumentChunk(f"Clause {clause}: {c_text}", f"clause_{clause}", 0, "clause", {}))
-    for i in range(0, len(words), chunk_size - overlap):
-        c_text = " ".join(words[i:i+chunk_size])
-        if len(c_text.split()) >= 25:
-            chunks.append(DocumentChunk(c_text, f"chunk_{len(chunks)}", (i // 200) + 1, "general", {}))
+def extract_text_from_url(url):
+    ext = url.split("?")[0].split(".")[-1].lower()
+    with tempfile.NamedTemporaryFile(delete=False, suffix=f".{ext}") as tmp:
+        tmp.write(requests.get(url).content)
+        tmp_path = tmp.name
+    if ext == "pdf":
+        return extract_text_from_pdf(tmp_path)
+    elif ext in ["docx", "doc"]:
+        return extract_text_from_docx(tmp_path)
+    elif ext == "eml":
+        return extract_text_from_email(tmp_path)
+    raise ValueError("Unsupported file type")
+
+# ---------------- CHUNKING ------------------
+def semantic_chunk(text, chunk_size=500):
+    sentences = re.split(r'(?<=[.!?])\s+', text)
+    chunks, chunk = [], ""
+    for sent in sentences:
+        if len(chunk) + len(sent) < chunk_size:
+            chunk += sent + " "
+        else:
+            chunks.append(chunk.strip())
+            chunk = sent + " "
+    if chunk:
+        chunks.append(chunk.strip())
     return chunks
 
-def embed_text(text: str):
-    return genai.embed_content(model="models/embedding-001", content=text, task_type="retrieval_document")["embedding"]
+# ---------------- VECTOR UPLOAD ------------------
+def upload_to_pinecone(texts: List[str], file_id: str):
+    embeddings = embedding_model.encode(texts, show_progress_bar=True).tolist()
+    vectors = [{
+        "id": f"{file_id}_{i}",
+        "values": emb,
+        "metadata": {"text": text, "file_id": file_id}
+    } for i, (emb, text) in enumerate(zip(embeddings, texts))]
+    index.upsert(vectors=vectors)
 
-def embed_query(text: str):
-    return genai.embed_content(model="models/embedding-001", content=text, task_type="retrieval_query")["embedding"]
+# ---------------- QUERY ------------------
+def search_similar_chunks(question: str, file_id: str, top_k=5):
+    query_vector = embedding_model.encode(question).tolist()
+    results = index.query(vector=query_vector, top_k=top_k, include_metadata=True,
+                          filter={"file_id": {"$eq": file_id}})
+    return [m["metadata"]["text"] for m in results["matches"]]
 
-async def upload_chunks(chunks: List[DocumentChunk], file_id: str):
-    loop = asyncio.get_event_loop()
-    vectors = await asyncio.gather(*[
-        loop.run_in_executor(None, lambda c=chunk: (str(uuid.uuid4()), embed_text(c.text),
-        {"text": c.text, "chunk_type": c.chunk_type, "page_num": c.page_num}))
-        for chunk in chunks
-    ])
-    index.upsert(vectors=vectors, namespace=file_id)
-    # Also insert into MongoDB
-    for chunk in chunks:
-        files_collection.insert_one({
-            "file_id": file_id,
-            "text": chunk.text,
-            "chunk_type": chunk.chunk_type,
-            "page_num": chunk.page_num
-        })
+# ---------------- GEMINI PROMPT ------------------
+SYSTEM_PROMPT = """
+You are a senior insurance policy analyst. Read the context carefully and answer strictly based on it. Avoid hallucinations.
 
-async def hybrid_search(query: str, file_id: str, top_k=8):
-    # Step 1: MongoDB text search filter
-    mongo_res = list(files_collection.find(
-        {"file_id": file_id, "$text": {"$search": query}},
-        {"score": {"$meta": "textScore"}, "text": 1}
-    ).sort([("score", {"$meta": "textScore"})]).limit(15))
-    mongo_texts = [doc["text"] for doc in mongo_res]
-
-    # Step 2: Pinecone semantic reranking
-    pinecone_res = index.query(namespace=file_id, vector=embed_query(query), top_k=top_k, include_metadata=True)
-    pinecone_texts = [m["metadata"]["text"] for m in pinecone_res["matches"]]
-
-    return list(dict.fromkeys(mongo_texts + pinecone_texts))[:top_k]
-
-async def batch_gemini_answer(questions: List[str], context: str) -> List[str]:
-    q_json = json.dumps(questions, indent=2)
-    prompt = f"""
-You are an insurance policy expert. Use ONLY the context below to answer.
-
-DOCUMENT CONTEXT:
-{context}
-
-QUESTIONS:
-{q_json}
-
-Rules:
-1. Answer each question accurately.
-2. If answer is missing, respond "Not specified in the policy text."
-Output JSON strictly: {{"answers": [<ans1>, <ans2>, ...]}}
+Respond concisely and professionally in full sentences. If the answer is not in the context, reply with: "Not specified in the policy text."
 """
-    model = genai.GenerativeModel("gemini-1.5-flash")
-    resp = model.generate_content(prompt, generation_config={"temperature": 0, "response_mime_type": "application/json"})
-    try:
-        return json.loads(resp.text)["answers"]
-    except:
-        match = re.search(r'\{[\s\S]*\}', resp.text)
-        return json.loads(match.group(0)).get("answers", ["Not specified in the policy text."]*len(questions))
 
+async def ask_gemini(question: str, context: str, max_retries=3):
+    prompt = f"{SYSTEM_PROMPT}\n\nContext:\n{context}\n\nQuestion: {question}"
+    for attempt in range(max_retries):
+        try:
+            response = await asyncio.to_thread(model.generate_content, prompt)
+            return response.text.strip()
+        except Exception as e:
+            logger.warning(f"Retry {attempt+1} failed for question: {question} -> {e}")
+            if "quota" in str(e).lower() or "rate" in str(e).lower():
+                await asyncio.sleep(2 ** attempt)  # exponential backoff
+            else:
+                break
+    return "Error: Unable to retrieve response from Gemini after retries."
+
+# ---------------- MAIN ENDPOINT ------------------
 @app.post("/api/v1/hackrx/run")
-async def hackrx_run(payload: dict = Body(...)):
-    start = time.time()
-    pdf_url = payload.get("documents")
-    questions = payload.get("questions")
-    if not pdf_url or not questions:
-        raise HTTPException(400, "Missing 'documents' or 'questions'")
-    
-    file_path = download_file(pdf_url)
-    ext = file_path.split(".")[-1].lower()
+async def run_llm(request: RunRequest):
+    try:
+        file_url = request.documents
+        questions = request.questions
 
-    # Extract text
-    if ext == "pdf":
-        text, structured = extract_pdf(file_path)
-        if not text.strip(): text = ocr_pdf(file_path)
-    elif ext == "docx":
-        text, structured = extract_docx(file_path)
-    elif ext in ["eml", "email"]:
-        text, structured = extract_email(file_path)
-    else:
-        raise HTTPException(400, "Unsupported file format.")
+        raw_text = extract_text_from_url(file_url)
+        file_id = hashlib.md5(raw_text.encode()).hexdigest()
 
-    file_hash = hashlib.md5(text.encode()).hexdigest()
+        if db.documents.find_one({"file_id": file_id}) is None:
+            logger.info(f"Indexing new file: {file_id}")
+            chunks = semantic_chunk(raw_text)
+            upload_to_pinecone(chunks, file_id)
+            db.documents.insert_one({"file_id": file_id, "questions": questions})
+        else:
+            logger.info(f"File {file_id} already indexed.")
 
-    # Cache check
-    if not files_collection.find_one({"file_id": file_hash}):
-        chunks = smart_chunk(text, structured)
-        await upload_chunks(chunks, file_hash)
+        tasks = []
+        for q in questions:
+            context_chunks = search_similar_chunks(q, file_id)
+            combined_context = "\n".join(context_chunks[:3])  # limit context size
+            tasks.append(ask_gemini(q, combined_context))
 
-    answers = []
-    batch_size = 4
-    for i in range(0, len(questions), batch_size):
-        batch_qs = questions[i:i+batch_size]
+        answers = await asyncio.gather(*tasks)
+        db.answers.insert_one({"file_id": file_id, "answers": answers})
 
-        # Query cache check
-        cached = list(queries_collection.find({"file_id": file_hash, "query": {"$in": batch_qs}}))
-        cached_dict = {c["query"]: c["answer"] for c in cached}
-
-        uncached_qs = [q for q in batch_qs if q not in cached_dict]
-        context = ""
-        if uncached_qs:
-            contexts = await asyncio.gather(*[hybrid_search(q, file_hash) for q in uncached_qs])
-            context = "\n\n".join(["\n".join(c) for c in contexts])
-            uncached_ans = await batch_gemini_answer(uncached_qs, context)
-            for q, ans in zip(uncached_qs, uncached_ans):
-                queries_collection.insert_one({"file_id": file_hash, "query": q, "answer": ans})
-                cached_dict[q] = ans
-
-        answers.extend([cached_dict[q] for q in batch_qs])
-
-    return {
-        "file_id": file_hash,
-        "file_type": ext,
-        "answers": answers,
-        "processing_time": f"{time.time()-start:.2f}s"
-    }
+        return {"file_id": file_id, "answers": answers}
+    except Exception as e:
+        logger.error(f"LLM run failed: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
