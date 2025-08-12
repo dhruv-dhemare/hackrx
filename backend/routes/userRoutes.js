@@ -1,64 +1,72 @@
-const express = require ('express');
+const express = require("express");
 const router = express.Router();
-const user = require('../models/user.js');
-const {userAuthMiddleware, generateToken} = require('./../jwt.js');
+const Query = require("../models/query.js");
+const { spawn } = require("child_process");
+const path = require("path");
 
-// Signup Route
-router.post('/signup', async (req, res) => {
+// ⚡ Hardcode one user ID (create this user in MongoDB and copy its _id here)
+const DEFAULT_USER_ID = "688b6945f2f69d99447d758d";
+
+// Get absolute path of Python script
+const scriptPath = path.join(__dirname, "..", "..", "chatbot_doc_6.py");
+
+// ---------------- QUERY ----------------
+router.post("/query", async (req, res) => {
   try {
-    const newUser = new user(req.body); // Assuming req.body contains { username, password, name, age }
-    
-    const exists = await user.findOne({ username: newUser.username });
-    if (exists) {
-      return res.status(409).json({ message: "Username already exists" });
+    const { query } = req.body;
+    if (!query) {
+      return res.status(400).json({ error: "Query is required" });
     }
 
-    const response = await newUser.save();
+    console.log("📥 Query received:", query);
 
-    // Generate token
-    const payload = { id: response._id };
-    const token = generateToken(payload);
+    // Run Python script with query
+    const python = spawn("python", [scriptPath, query]);
 
-    console.log('User data saved');
-    console.log("Token is:", token);
+    let dataBuffer = "";
+    python.stdout.on("data", (data) => {
+      dataBuffer += data.toString();
+    });
 
-    res.status(200).json({ response, token });
+    python.stderr.on("data", (data) => {
+      console.error(`🐍 Python Error: ${data}`);
+    });
 
+    python.on("close", async () => {
+      console.log("🐍 Raw Python Output:", dataBuffer); // ✅ Debugging
+
+      try {
+        const answer = JSON.parse(dataBuffer);
+
+        // Save to DB under default user
+        const q = new Query({
+          userId: DEFAULT_USER_ID,
+          query,
+          answer,
+        });
+        await q.save();
+
+        res.json({ query, answer });
+      } catch (err) {
+        console.error("❌ Parse Error:", err);
+        res.status(500).json({ error: "Failed to process chatbot response" });
+      }
+    });
   } catch (err) {
-
-    console.log(err);
-    res.status(500).json({ error: 'Internal Server Error' });
+    console.error("❌ Query Route Error:", err);
+    res.status(500).json({ error: "Internal Server Error" });
   }
 });
 
-
-//login
-router.post('/login', async (req,res) => {
-    try{
-        const {username,password} = req.body;
-        const user_ = await user.findOne({ username : username});
-
-        if(!user_){
-            console.log("Invalid username");
-            res.status(401).json({ error: 'Invalid username' });
-        }
-        const pass = user_.password;
-        if(pass!=password){
-            console.log("Invalid password");
-            res.status(401).json({ error: 'Incorrect Password' });
-        }
-        console.log("User found");
-
-        const payload = {id: user_._id};
-        const token = generateToken(payload);
-        console.log("Token is: ",token);
-
-        res.status(200).json({response: user_, token: token});
-
-    }catch(err){
-        console.log(err);
-        res.status(500).json({ error: 'Internal Server Error' });
-    }
-})
+// ---------------- HISTORY ----------------
+router.get("/history", async (req, res) => {
+  try {
+    const history = await Query.find({ userId: DEFAULT_USER_ID }).sort({ timestamp: -1 });
+    res.json(history);
+  } catch (err) {
+    console.error("❌ History Error:", err);
+    res.status(500).json({ error: "Internal Server Error" });
+  }
+});
 
 module.exports = router;

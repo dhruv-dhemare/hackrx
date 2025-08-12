@@ -1,11 +1,5 @@
-
-"""
-Best one so far and i am happy with this and the accuracy is about 85%
-this is the query function
-
-"""
-
 import os
+import sys
 import json
 from dotenv import load_dotenv
 import google.generativeai as genai
@@ -18,29 +12,43 @@ PINECONE_API_KEY = os.getenv("PINECONE_API_KEY")
 INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
 
 if not GEMINI_API_KEY or not PINECONE_API_KEY or not INDEX_NAME:
-    print("❌ Missing env vars. Check your .env file.")
-    exit()
+    print(json.dumps({
+        "decision": "Cannot determine",
+        "amount": "Unknown",
+        "justification": "Missing API keys or index name.",
+        "clause_ids": [],
+        "risk_level": "Yellow",
+        "answers": []
+    }))
+    sys.exit(1)
 
 # === Configure Gemini & Pinecone ===
 genai.configure(api_key=GEMINI_API_KEY)
 pc = Pinecone(api_key=PINECONE_API_KEY)
 
 if INDEX_NAME not in pc.list_indexes().names():
-    print(f"❌ Index {INDEX_NAME} not found.")
-    exit()
+    print(json.dumps({
+        "decision": "Cannot determine",
+        "amount": "Unknown",
+        "justification": f"Index {INDEX_NAME} not found.",
+        "clause_ids": [],
+        "risk_level": "Yellow",
+        "answers": []
+    }))
+    sys.exit(1)
 
 index = pc.Index(INDEX_NAME)
 
 # === Helper Functions ===
-def embed_text_for_query(text):
+def embed_text_for_query(text: str):
     response = genai.embed_content(
         model="models/embedding-001",
-        content="Find insurance coverage details: " + text,  # 👈 Add directive
+        content="Find insurance coverage details: " + text,
         task_type="retrieval_query"
     )
     return response["embedding"]
 
-def retrieve_similar_chunks(query, top_k=10):  # 👈 Increased top_k
+def retrieve_similar_chunks(query: str, top_k: int = 10):
     query_embedding = embed_text_for_query(query)
     results = index.query(
         vector=query_embedding,
@@ -49,7 +57,7 @@ def retrieve_similar_chunks(query, top_k=10):  # 👈 Increased top_k
     )
     return [match["metadata"]["text"] for match in results["matches"]]
 
-def ask_gemini(query, context_chunks):
+def ask_gemini(query: str, context_chunks: list):
     context = "\n---\n".join(context_chunks)
     prompt = f"""
 You are a health insurance policy analysis assistant.
@@ -84,41 +92,49 @@ Instructions:
     try:
         response = model.generate_content(prompt)
         response_text = response.text.strip()
+
+        # Clean ```json ``` wrappers if present
         if response_text.startswith("```json"):
             response_text = response_text[7:]
         if response_text.endswith("```"):
             response_text = response_text[:-3]
+
         return json.loads(response_text)
     except Exception as e:
-        print(f"❌ Error parsing response: {e}")
-        return None
+        return {
+            "decision": "Cannot determine",
+            "amount": "Unknown",
+            "justification": f"Parsing/Generation error: {str(e)}",
+            "clause_ids": [],
+            "risk_level": "Yellow",
+            "answers": []
+        }
 
-# === Main Program ===
+# === Entry Point ===
 if __name__ == "__main__":
-    print(f"✅ Connected to Pinecone index: {INDEX_NAME}")
-    while True:
-        query = input("\n🔍 Ask something (or 'exit'): ")
-        if query.lower() == "exit":
-            break
-        print("🔎 Retrieving relevant chunks...")
-        retrieved = retrieve_similar_chunks(query)
-        if not retrieved:
-            print(json.dumps({
-                "decision": "Cannot determine",
-                "amount": "Unknown",
-                "justification": "No relevant info found.",
-                "clause_ids": [],
-                "risk_level": "Yellow",
-                "answers": []
-            }, indent=4))
-            continue
-        print("💬 Generating Gemini response...")
-        answer = ask_gemini(query, retrieved)
-        print(json.dumps(answer if answer else {
+    import sys
+    query = sys.argv[1]
+    retrieved = retrieve_similar_chunks(query)
+    if not retrieved:
+        result = {
+            "decision": "Cannot determine",
+            "amount": "Unknown",
+            "justification": "No relevant info found.",
+            "clause_ids": [],
+            "risk_level": "Yellow",
+            "answers": []
+        }
+        print(json.dumps(result))  # ✅ only JSON
+        sys.exit(0)
+
+    answer = ask_gemini(query, retrieved)
+    if not answer:
+        answer = {
             "decision": "Cannot determine",
             "amount": "Unknown",
             "justification": "Parsing error.",
             "clause_ids": [],
             "risk_level": "Yellow",
             "answers": []
-        }, indent=4))
+        }
+    print(json.dumps(answer))  # ✅ only JSON

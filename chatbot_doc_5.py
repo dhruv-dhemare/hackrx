@@ -1,8 +1,10 @@
-
 """
-Best one so far and i am happy with this and the accuracy is about 85%
-this is the upload function
+Final Upload & Indexing Script (chatbot_doc_5.py)
 
+- Extracts text from PDF
+- Splits into clause-aware chunks
+- Embeds with Gemini embeddings
+- Uploads to Pinecone
 """
 
 import os
@@ -12,6 +14,7 @@ import re
 from dotenv import load_dotenv
 import google.generativeai as genai
 from pinecone import Pinecone, ServerlessSpec
+import sys
 
 # === Load Environment Variables ===
 load_dotenv()
@@ -21,9 +24,12 @@ INDEX_NAME = os.getenv("PINECONE_INDEX_NAME")
 PINECONE_CLOUD = os.getenv("PINECONE_CLOUD", "aws")
 PINECONE_REGION = os.getenv("PINECONE_REGION", "us-east-1")
 
+if not GEMINI_API_KEY or not PINECONE_API_KEY or not INDEX_NAME:
+    print("[ERROR] Missing required environment variables.")
+    exit(1)
+
 # Normalize index name
-if INDEX_NAME:
-    INDEX_NAME = INDEX_NAME.lower().replace("_", "-")
+INDEX_NAME = INDEX_NAME.lower().replace("_", "-")
 
 # === Configure Gemini ===
 genai.configure(api_key=GEMINI_API_KEY)
@@ -32,7 +38,7 @@ genai.configure(api_key=GEMINI_API_KEY)
 pc = Pinecone(api_key=PINECONE_API_KEY)
 
 if INDEX_NAME not in pc.list_indexes().names():
-    print(f"Index '{INDEX_NAME}' not found. Creating it...")
+    print(f"[WARN] Index '{INDEX_NAME}' not found. Creating it...")
     pc.create_index(
         name=INDEX_NAME,
         dimension=768,
@@ -88,12 +94,12 @@ def chunk_document(text, min_clause_len=80, max_group_size=3):
     if buffer:
         chunks.append((current_clause_id or f"clause_{len(chunks)+1}", " ".join(buffer)))
 
-    print(f"✅ Document split into {len(chunks)} grouped clause-chunks.")
+    print(f"[INFO] Document split into {len(chunks)} grouped clause-chunks.")
     return chunks
 
 # === Step 3: Embed and Upload in Batches ===
 def upload_chunks_to_pinecone(chunks, index, batch_size=50):
-    print(f"📤 Uploading {len(chunks)} chunks to Pinecone...")
+    print(f"[INFO] Uploading {len(chunks)} chunks to Pinecone...")
     batch = []
 
     for i, (clause_id, chunk) in enumerate(chunks):
@@ -118,26 +124,31 @@ def upload_chunks_to_pinecone(chunks, index, batch_size=50):
                 batch = []
 
         except Exception as e:
-            print(f"⚠️ Error embedding clause {clause_id}: {e}")
+            print(f"[ERROR] Error embedding clause {clause_id}: {e}")
             continue
 
     if batch:
         index.upsert(batch)
 
-    print("✅ Upload completed.")
+    print("[INFO] Upload completed.")
 
 # === Main Program ===
 if __name__ == "__main__":
-    print(f"✅ Connected to Pinecone index: {INDEX_NAME}")
+    print(f"[INFO] Connected to Pinecone index: {INDEX_NAME}")
 
-    pdf_path = input("📂 Enter the full path of your PDF file: ").strip()
+    if len(sys.argv) < 2:
+        print("[ERROR] No PDF path provided.")
+        exit(1)
+
+    pdf_path = sys.argv[1]
     if not os.path.exists(pdf_path):
-        print(f"❌ File not found: {pdf_path}")
-        exit()
+        print(f"[ERROR] File not found: {pdf_path}")
+        exit(1)
+
+    print(f"[INFO] Processing document: {pdf_path}")
 
     pdf_text = extract_text_from_pdf(pdf_path)
     clause_chunks = chunk_document(pdf_text)
-
     upload_chunks_to_pinecone(clause_chunks, index)
 
-    print(f"📌 Document '{pdf_path}' successfully indexed into Pinecone with safe clause IDs.")
+    print(f"[INFO] Document '{pdf_path}' successfully indexed into Pinecone with safe clause IDs.")
