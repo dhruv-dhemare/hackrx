@@ -1,6 +1,6 @@
 import axios from 'axios';
 
-const BASE_URL = 'http://localhost:3000/admin'; // Change port/domain if needed
+const BASE_URL = 'http://localhost:3000/admin'; // adjust if needed
 
 // Upload a document
 export const uploadDocument = async (file) => {
@@ -14,15 +14,9 @@ export const uploadDocument = async (file) => {
   });
 };
 
-// Delete a document
-export const deleteDocument = async (username, docName, token) => {
-  return axios.delete(`${BASE_URL}/delete-doc`, {
-    headers: {
-      'Authorization': `Bearer ${token}`,
-      'Content-Type': 'application/json',
-    },
-    data: { username, docName },
-  });
+// Delete a document (by name only, backend uses env ADMIN_USERNAME)
+export const deleteDocument = async (docName) => {
+  return axios.delete(`${BASE_URL}/delete-doc/${encodeURIComponent(docName)}`);
 };
 
 // Get all documents

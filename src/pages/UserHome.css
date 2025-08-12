@@ -115,3 +115,29 @@
   color: #555;
   font-style: italic;
 }
+
+
+/* History Items inside response-box */
+.history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.history-item {
+  padding: 1rem;
+  border-radius: 0.8rem;
+  background: #f9fbff; /* light subtle background */
+  box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+}
+
+.history-item p {
+  margin: 0.3rem 0;
+  color: #222; /* 🔥 force dark readable text */
+  font-size: 0.95rem;
+  line-height: 1.4;
+}
+
+.history-item strong {
+  color: #000; /* bold labels */
+}
